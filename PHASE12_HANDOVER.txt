@@ -1,0 +1,377 @@
+CivicSense - Phase 12 full context / handover record
+====================================================
+
+Created: 2026-11-22
+Purpose: single local text file that explains exactly what was done, what was
+verified, what remains blocked, and what the Git state is. This is a context
+record. If it exists as an untracked file after the Phase 12 checkpoint, that is
+intentional: it was written after the approved commit/tag for handover use.
+
+
+1. FINAL STATE AT A GLANCE
+--------------------------
+Project: E:\CivicSense
+Final phase: Phase 12 - Production Readiness & Infrastructure Hardening
+No Phase 13 was created.
+No push was performed.
+
+Git state at completion:
+- HEAD / Phase 12 commit:
+  e523905d20f3e5b59d2d6a60c4c30d12a4c94a09
+  "Phase 12: production readiness and infrastructure hardening"
+- HEAD tree and tag tree:
+  ad7e7359341b6f9dd12bf771c223a241c81d540a
+- Local tag created:
+  phase12-approved -> e523905d20f3e5b59d2d6a60c4c30d12a4c94a09
+- Working tree after commit/tag: clean before this handover .txt was written.
+- No remote configured (`git remote -v` produced no output).
+- Prior checkpoints intact:
+  phase11-approved -> 083a0e6d41029897c987f9883ac28869ad7f8a95
+  phase10-approved -> d49e9a80dc20a6cf6bf506a563a016c99e895adf
+  phase4-approved through phase9-approved also intact.
+- No reset, clean, revert, overwrite, history rewrite, or push occurred.
+
+Overall assessment:
+- Locally: implementation and verification are complete and green.
+- Externally: NOT production-verified. Hosted database/storage/email/deployment
+  checks remain blocked by missing operator credentials/access.
+- Phase 1 section 1.1 remains open. Do not claim hosted verification.
+
+
+2. OBJECTIVE AND GROUND RULES
+-----------------------------
+The owner requested a final Phase 12 definition and implementation, verification
+of everything possible locally, a local phase12-approved checkpoint, and a final
+handover, with these rules:
+
+- Preserve every prior commit/tag.
+- Never invent credentials or provider access.
+- Never claim external verification without executed evidence.
+- Update DEVELOPMENT_ROADMAP.md with Phase 12 scope, objectives, dependencies,
+  and acceptance criteria BEFORE coding.
+- Create docs/PHASE12_IMPLEMENTATION_CONTRACT.md BEFORE implementation.
+- No Docker by standing decision. No Dockerfile or compose file.
+- No Phase 13.
+- No push.
+
+All of these were followed.
+
+
+3. PHASE 12 DEFINITION AND CONTRACT
+-----------------------------------
+Before implementation:
+- DEVELOPMENT_ROADMAP.md was updated to version 1.4 with Phase 12 status,
+  definition, dependencies, exit criteria, and Mermaid dependency edge
+  P11 --> P12. After completion it was updated to version 1.5 with final results
+  in section 16.
+- docs/PHASE12_IMPLEMENTATION_CONTRACT.md was written as the pre-implementation
+  contract. Its section 11 now records final executed results. Earlier planning
+  language is retained as historical and explicitly superseded where needed.
+
+Workstreams A-G:
+  A. Database and Supabase
+  B. Object storage
+  C. Notifications
+  D. Distributed infrastructure
+  E. Observability
+  F. Security/authz
+  G. Production-like no-Docker verification
+
+
+4. IMPLEMENTATION COMPLETED
+---------------------------
+
+4.1 A - Database / Supabase
+- Static Flyway inventory reviewed: V1 through V13 all exist in source.
+- Correct detail: V8__phase5_image_analysis.sql EXISTS. The originally planned
+  V8__super_admin_seed.sql was never created because the first super admin is
+  bootstrapped from local environment values. A hosted Flyway run should show
+  13 successful rows, not 12.
+- No new Flyway migration was added.
+- H2 schema/test double continues to be used for automated tests; it is NOT
+  evidence of real PostgreSQL/PostGIS behavior.
+- scripts/phase12-hosted-preflight.ps1 validates the source inventory and
+  reports exact hosted blockers without printing values or contacting networks.
+
+4.2 B - Object storage
+Existing secure upload controls were retained and strengthened with local tests:
+- Cross-user discard now explicitly returns 403.
+- Pending upload is rolled back if presigning fails.
+- Missing and oversized objects are rejected.
+- Presigned PUT/GET TTLs are asserted.
+- Storage failure during AI/image flow does not lose complaint data.
+- Ownership checks are enforced.
+Hosted S3 HeadBucket, signed transfer, and private-bucket checks are BLOCKED.
+
+4.3 C - Notifications / password reset email
+- Added spring-boot-starter-mail.
+- Added PasswordResetEmailChannel using ObjectProvider<JavaMailSender> so an
+  unconfigured mail provider does not break startup.
+- Email is disabled unless CIVICSENSE_MAIL_ENABLED=true and all SMTP values are
+  supplied.
+- Existing outbox event auth.password_reset_requested is routed to SMTP.
+- Deterministic Message-ID based on the outbox event provides best-effort
+  provider-side dedupe.
+- Raw reset token is never logged. It exists only in the outbox payload and the
+  outbound email body.
+- Provider exceptions are sanitised to IllegalStateException("Password-reset
+  email delivery failed"); provider text is never persisted to last_error or
+  logged.
+- Fixed terminal FAILED outbox rows: null nextAttemptAt is no longer treated as
+  due for terminal failures, while new PENDING rows remain immediately due.
+- Local fake-transport tests cover success, failure, retry, and no-duplicate
+  behavior.
+- Real SMTP delivery is BLOCKED until an operator supplies a provider.
+
+4.4 D - Distributed infrastructure
+- Evaluated Redis/shared rate limiting.
+- Decision: DO NOT implement. No Redis dependency, service, CLI, config, or
+  shared store exists. Deployment remains single-process.
+- Existing in-memory Bucket4j behavior, limits, 429 responses, and Retry-After
+  headers are preserved.
+- Cross-instance testing is BLOCKED/not applicable without a shared store and a
+  scale-out decision.
+
+4.5 E - Observability
+- Boot 4.2 built-in structured ECS JSON console logging enabled with:
+    logging.structured.format.console: ecs
+  `json` is invalid in Boot 4.2 and was not used.
+- Added global correlation components under:
+    backend/src/main/java/com/civicsense/observability/
+    - CorrelationId.java
+    - CorrelationIdFilter.java
+    - MdcTaskDecorator.java
+- X-Correlation-Id is generated or echoed at the request boundary, exposed via
+  CORS, and propagated into MDC, async workers, scheduled cleanup, error bodies,
+  health responses, and audit rows.
+- Centralised previously scattered UUID.randomUUID() sites.
+- Structured logging, MDC propagation, correlation integration, and redaction
+  behavior are covered by tests.
+- Log aggregation and alerting remain operator-provided; no monitoring stack was
+  added.
+
+4.6 F - Security / authz
+- Authorization/isolation regression tests remain green.
+- PostgreSQL RLS was evaluated but NOT enabled. Reason: no least-privilege DB
+  role, no real PostgreSQL integration matrix, and background delivery/retention
+  REQUIRES_NEW flows could break. Application-layer RBAC, ownership checks, and
+  department-scoped queries remain authoritative.
+- Argon2id decision was superseded by owner-directed implementation:
+    - Added UpgradingPasswordEncoder with prefix {argon2id}.
+    - New and reset passwords are Argon2id.
+    - Legacy BCrypt hashes still verify.
+    - Successful login transparently rehashes legacy passwords.
+    - No schema migration required because password_hash is varchar(255).
+- Bouncy Castle was initially added at 1.84; dependency audit found critical and
+  high advisories. Upgraded to 1.85; final audit is clean.
+
+4.7 G - Production-like no-Docker verification
+- No Docker image, Dockerfile, or compose file was created.
+- scripts/phase12-local-smoke.ps1 starts the packaged jar with the H2 test jar
+  injected via Spring Boot PropertiesLauncher, starts the built SPA, checks
+  health/actuator/SPA/restart recovery, and cleans up child processes.
+- scripts/phase12-hosted-preflight.ps1 performs a static credential-safe hosted
+  readiness report.
+- Hosted deployment, hosted health, hosted report/approval, hosted backup and
+  restore remain BLOCKED.
+
+
+5. VERIFICATION ACTUALLY EXECUTED
+---------------------------------
+
+Backend:
+  & 'C:\maven\apache-maven-3.9.16-bin\apache-maven-3.9.16\bin\mvn.cmd' -B -f 'E:\CivicSense\backend\pom.xml' test
+  Result: Tests run: 149, Failures: 0, Errors: 0, Skipped: 0
+
+  & 'C:\maven\apache-maven-3.9.16-bin\apache-maven-3.9.16\bin\mvn.cmd' -B -f 'E:\CivicSense\backend\pom.xml' package
+  Result: Tests run: 149, BUILD SUCCESS, jar produced:
+  E:\CivicSense\backend\target\civicsense-backend-0.1.0.jar
+
+  Focused Phase 12 suite:
+  Tests run: 16, Failures: 0, Errors: 0, Skipped: 0
+  Broader focused suite also passed after final fixes.
+
+Frontend (Node is at E:\CivicSense\tools\node\node-v26.13.1-win-x64):
+  $env:PATH = 'E:\CivicSense\tools\node\node-v26.13.1-win-x64;' + $env:PATH
+  npm run test       -> 39 tests in 6 files, all passed
+  npm run lint       -> exit 0, only pre-existing DepartmentProfilePage.tsx warnings
+  npm run build      -> tsc -b && vite build succeeded; non-blocking 500 kB chunk warning
+  npm run test:e2e   -> 5 Playwright tests passed using local Edge and stubbed APIs
+
+Dependency audit:
+  & 'E:\CivicSense\scripts\dependency-audit.ps1' `
+    -Maven 'C:\maven\apache-maven-3.9.16-bin\apache-maven-3.9.16\bin\mvn.cmd' `
+    -Npm 'E:\CivicSense\tools\node\node-v26.13.1-win-x64\npm.cmd'
+  Result after Bouncy Castle 1.85:
+  - npm: found 0 vulnerabilities
+  - Maven OSV: No advisories reported
+  - Dependency audit passed
+
+Secret scan:
+  & 'E:\CivicSense\scripts\secret-scan.ps1'
+  Result: 307 tracked files scanned; no credential-like patterns or accidental
+  secret files found.
+
+Backup/restore local dry run:
+  & 'E:\CivicSense\scripts\backup-restore-dry-run.ps1'
+  Result: PASSED with H2 test double only.
+  Snapshot before/after:
+  users=1|audit_logs=1|settings=1|email=dryrun@example.test
+  Hosted PostgreSQL/S3 backup/restore was NOT exercised.
+
+Hosted preflight:
+  & 'E:\CivicSense\scripts\phase12-hosted-preflight.ps1'
+  Result: hosted checks BLOCKED with exact missing keys/tools named.
+  Flyway source inventory READY: 13 files V1-V13.
+  No values printed, no network calls made.
+
+Local no-Docker smoke/restart:
+  & 'E:\CivicSense\scripts\phase12-local-smoke.ps1'
+  Result: PASSED.
+  - backend health reached: HTTP 503 expected under test profile
+  - correlation header present
+  - actuator health reached
+  - SPA root document served with React mount point
+  - backend restart recovered
+  - all child processes stopped
+  Scope: H2 test double + built SPA only.
+
+Git check:
+  git diff --check
+  Result: no whitespace errors; only LF will be replaced by CRLF warnings.
+
+Independent final review:
+- No blocking findings.
+- Four documentation-accuracy findings were found and fixed before commit:
+  1. Wrong password-reset endpoint name in API docs: corrected to /auth/forgot-password.
+  2. Stale "updates the BCrypt hash" statement: corrected to prefixed Argon2id.
+  3. Duplicate push-notification bullet in ARCHITECTURE.md: corrected.
+  4. Pre-written commit/tag wording: acceptable because commit/tag were created immediately afterward.
+
+
+6. TOOLS AND ENVIRONMENT NOTES
+-------------------------------
+- Java 21 is installed at C:\Program Files\Java\jdk-21.
+- Maven works from:
+  C:\maven\apache-maven-3.9.16-bin\apache-maven-3.9.16\bin\mvn.cmd
+- Maven local repo is pinned by backend\.mvn\maven.config to:
+  E:/CivicSense/tools/maven-repo
+- Portable Node is at:
+  E:\CivicSense\tools\node\node-v26.13.1-win-x64
+- npm is not on default PATH; add the portable Node directory to PATH first.
+- Docker is not installed and is deliberately not used.
+- psql, pg_dump, pg_restore, aws, and redis-cli were not available.
+- Root .env contains placeholders for database URL/password, S3 keys, and JWT
+  secret. Values were never exposed, printed, committed, or invented.
+- .env is git-ignored and not tracked. .env.example contains placeholders only.
+
+
+7. FILES ADDED OR SIGNIFICANTLY CHANGED
+---------------------------------------
+Key documentation:
+- DEVELOPMENT_ROADMAP.md
+- docs/PHASE12_IMPLEMENTATION_CONTRACT.md
+- docs/DEPLOYMENT.md
+- docs/SUPABASE_SETUP.md
+- docs/PHASE10_IMPLEMENTATION_CONTRACT.md
+- docs/PHASE11_IMPLEMENTATION_CONTRACT.md
+- ARCHITECTURE.md
+- API_DOCUMENTATION.md
+- DATABASE_DESIGN.md
+- AI_ROUTING_DESIGN.md
+- .env.example
+
+Key backend code/config:
+- backend/pom.xml (mail starter, Bouncy Castle 1.85)
+- backend/src/main/resources/application.yml
+- backend/src/main/resources/application-test.yml
+- backend/src/main/java/com/civicsense/config/ApplicationBeansConfig.java
+- backend/src/main/java/com/civicsense/security/UpgradingPasswordEncoder.java
+- backend/src/main/java/com/civicsense/notification/PasswordResetEmailChannel.java
+- backend/src/main/java/com/civicsense/notification/OutboxDispatcher.java
+- backend/src/main/java/com/civicsense/notification/OutboxEventProcessor.java
+- backend/src/main/java/com/civicsense/repository/OutboxEventRepository.java
+- backend/src/main/java/com/civicsense/observability/*
+- backend/src/main/java/com/civicsense/auth/AuthService.java
+- backend/src/main/java/com/civicsense/upload/UploadService.java
+- related audit, health, async, retention, exception, and security handlers
+
+Key tests:
+- backend/src/test/java/com/civicsense/observability/*
+- backend/src/test/java/com/civicsense/notification/*
+- backend/src/test/java/com/civicsense/phase3/Phase12*
+- backend/src/test/java/com/civicsense/security/Phase12UpgradingPasswordEncoderTest.java
+- updated Phase 5 upload/AI tests and Phase 10 security/rate-limit test
+
+New scripts:
+- scripts/phase12-hosted-preflight.ps1
+- scripts/phase12-local-smoke.ps1
+Existing scripts:
+- scripts/backup-restore-dry-run.ps1
+- scripts/dependency-audit.ps1
+- scripts/secret-scan.ps1
+- scripts/dev-env.ps1
+- scripts/run-backend.ps1
+- scripts/run-frontend.ps1
+
+
+8. BLOCKED / NOT CLAIMED
+------------------------
+The following were NOT executed and must never be claimed as verified:
+
+- Hosted Supabase PostgreSQL connectivity (`SELECT 1`).
+- Real Flyway V1-V13 execution on PostgreSQL and flyway_schema_history check.
+- PostGIS installation check (`postgis_version()`).
+- Real spatial `ST_Intersects` jurisdiction routing.
+- Hosted health, report/approval, and SPA-to-backend CORS.
+- S3 HeadBucket, signed upload/download, and private bucket access checks.
+- Real SMTP password-reset delivery.
+- Hosted deployment, hosted restart, hosted backup, and hosted restore.
+- Cross-instance rate-limit testing.
+- PostgreSQL RLS enforcement.
+
+Exact missing external requirements:
+1. Real Supabase direct PostgreSQL host/port 5432, database name/user, password,
+   and network access in the git-ignored .env.
+2. Real Supabase Storage S3 endpoint, private civic-images bucket, access key,
+   secret, network access, and an S3 client.
+3. SMTP host, port, security mode, username, password, sender address, and
+   CIVICSENSE_MAIL_ENABLED=true.
+4. Hosting account/deployment target and network access.
+5. Trusted operator clients psql, pg_dump, pg_restore (or equivalent), and aws.
+6. Shared Redis-compatible endpoint and an operator scale-out decision before
+   distributed rate limiting or cross-instance testing.
+7. Least-privilege DB role and a real PostgreSQL integration matrix before RLS.
+
+
+9. IMPORTANT DECISIONS TO REMEMBER
+-----------------------------------
+- No Docker by standing owner decision.
+- No Phase 13.
+- No push.
+- Do not reset, clean, revert, or rewrite history without explicit authorization.
+- Do not mark Phase 1 section 1.1 complete until hosted verification is executed.
+- Do not change Flyway migrations already committed.
+- Do not claim hosted verification from local/H2/mocked evidence.
+- Do not log tokens, secrets, raw password-reset tokens, PII, full coordinates,
+  or complaint content.
+- Redis and RLS were evaluated and intentionally not implemented.
+- Argon2id was implemented gradually; legacy BCrypt must continue to work.
+- ECS, not json, is the valid Boot 4.2 structured console format.
+
+
+10. IF CONTINUING FROM THIS FILE
+-------------------------------
+Start here:
+1. Confirm Git state:
+   git -C E:\CivicSense status --short
+   git -C E:\CivicSense log -1 --oneline
+   git -C E:\CivicSense tag --list "phase*-approved"
+   git -C E:\CivicSense remote -v
+2. Read final results:
+   DEVELOPMENT_ROADMAP.md section 16
+   docs/PHASE12_IMPLEMENTATION_CONTRACT.md section 11
+3. If this handover .txt is untracked, decide with the owner whether to keep it
+   as a local note or commit it as a separate documentation-only change. Do not
+   silently rewrite the phase12-approved checkpoint.
+4. Do not begin any Phase 13 work. The project is at the final Phase 12 gate.

@@ -1,0 +1,74 @@
+# Local TEST DOUBLE configuration only.
+# H2 in PostgreSQL compatibility mode stands in for Supabase/PostGIS during
+# automated tests. It is NOT evidence of hosted-service integration (see
+# DEVELOPMENT_ROADMAP.md §1.1). Flyway is disabled here; the H2 schema lives in
+# src/test/resources/schema-test.sql.
+spring:
+  datasource:
+    url: jdbc:h2:mem:civicsense;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-test.sql
+
+civicsense:
+  app-version: test
+  cors:
+    allowed-origins: http://localhost:5173
+  storage:
+    endpoint: http://localhost:9000
+    bucket: civic-images
+    access-key: test-access-key
+    secret-key: test-secret-key
+    region: us-east-1
+    path-style: true
+  notifications:
+    dispatch-delay-ms: 3600000
+    dispatch-initial-delay-ms: 3600000
+  rate-limits:
+    global-capacity: 10000
+    global-window-minutes: 1
+    submit-capacity: 10000
+    submit-window-minutes: 1
+    presign-capacity: 10000
+    presign-window-minutes: 1
+  retention:
+    months: 24
+    enabled: false
+  auth:
+    jwt-secret: test-only-secret-key-that-is-at-least-32-characters-long
+    access-token-minutes: 15
+    refresh-token-days: 7
+    refresh-cookie-name: civicsense_refresh
+    refresh-cookie-secure: false
+    bcrypt-strength: 10
+    argon2-salt-length: 16
+    argon2-hash-length: 32
+    argon2-parallelism: 1
+    argon2-memory-kb: 8192
+    argon2-iterations: 2
+    max-failed-attempts: 5
+    lockout-minutes: 15
+    login-rate-limit: 100
+    login-rate-window-minutes: 15
+    reset-token-minutes: 30
+    reset-rate-limit: 100
+    reset-rate-window-minutes: 15
+  super-admin:
+    email:
+    password:
+
+logging:
+  level:
+    com.civicsense: INFO

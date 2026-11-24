@@ -1,0 +1,140 @@
+spring:
+  application:
+    name: civicsense
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 10000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+  mail:
+    host: ${CIVICSENSE_MAIL_HOST:}
+    port: ${CIVICSENSE_MAIL_PORT:587}
+    username: ${CIVICSENSE_MAIL_USERNAME:}
+    password: ${CIVICSENSE_MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${CIVICSENSE_MAIL_SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${CIVICSENSE_MAIL_STARTTLS:true}
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  servlet:
+    # All REST endpoints are served under /api/v1 (matches API_DOCUMENTATION.md).
+    context-path: /api/v1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+  health:
+    db:
+      enabled: true
+
+civicsense:
+  app-version: ${CIVICSENSE_APP_VERSION:0.1.0}
+  cors:
+    allowed-origins: ${CIVICSENSE_ALLOWED_ORIGINS:http://localhost:5173}
+  security:
+    # Vite injects styles at runtime; inline styles are the only relaxation.
+    csp: '${CIVICSENSE_CSP:default-src ''self''; script-src ''self''; style-src ''self'' ''unsafe-inline''; img-src ''self'' data: blob: https://tile.openstreetmap.org; connect-src ''self'' http://localhost:8080 https://tile.openstreetmap.org; font-src ''self'' data:; object-src ''none''; base-uri ''self''; frame-ancestors ''none''; form-action ''self''}'
+  rate-limits:
+    global-capacity: ${CIVICSENSE_RATE_GLOBAL_CAPACITY:120}
+    global-window-minutes: ${CIVICSENSE_RATE_GLOBAL_WINDOW_MINUTES:1}
+    submit-capacity: ${CIVICSENSE_RATE_SUBMIT_CAPACITY:3}
+    submit-window-minutes: ${CIVICSENSE_RATE_SUBMIT_WINDOW_MINUTES:1}
+    presign-capacity: ${CIVICSENSE_RATE_PRESIGN_CAPACITY:10}
+    presign-window-minutes: ${CIVICSENSE_RATE_PRESIGN_WINDOW_MINUTES:1}
+  retention:
+    months: ${CIVICSENSE_RETENTION_MONTHS:24}
+    enabled: ${CIVICSENSE_RETENTION_ENABLED:false}
+    # Disabled by default; e.g. "0 0 2 * * *" for nightly 02:00.
+    cron: ${CIVICSENSE_RETENTION_CRON:-}
+  storage:
+    endpoint: ${CIVICSENSE_S3_ENDPOINT}
+    bucket: ${CIVICSENSE_S3_BUCKET:civic-images}
+    access-key: ${CIVICSENSE_S3_ACCESS_KEY}
+    secret-key: ${CIVICSENSE_S3_SECRET_KEY}
+    region: ${CIVICSENSE_S3_REGION:us-east-1}
+    path-style: ${CIVICSENSE_S3_PATH_STYLE:true}
+  ai:
+    # Provider-independent vision client. 'stub' is allowed in dev/test and rejected in prod.
+    provider: ${CIVICSENSE_AI_PROVIDER:stub}
+    base-url: ${CIVICSENSE_AI_BASE_URL:}
+    api-key: ${CIVICSENSE_AI_API_KEY:}
+    model: ${CIVICSENSE_AI_MODEL:gpt-4o-mini}
+    timeout-ms: ${CIVICSENSE_AI_TIMEOUT_MS:20000}
+    max-attempts: ${CIVICSENSE_AI_MAX_ATTEMPTS:3}
+    confidence-threshold: ${CIVICSENSE_AI_CONFIDENCE_THRESHOLD:0.75}
+    prompt-version: ${CIVICSENSE_AI_PROMPT_VERSION:civic-v1}
+    max-images: ${CIVICSENSE_AI_MAX_IMAGES:5}
+  upload:
+    max-bytes: ${CIVICSENSE_UPLOAD_MAX_BYTES:10485760}
+    presign-ttl-seconds: ${CIVICSENSE_UPLOAD_PRESIGN_TTL_SECONDS:900}
+    view-ttl-seconds: ${CIVICSENSE_UPLOAD_VIEW_TTL_SECONDS:300}
+  auth:
+    # All auth logic is owned by Spring Boot. Supabase Auth is never used.
+    jwt-secret: ${CIVICSENSE_JWT_SECRET}
+    access-token-minutes: ${CIVICSENSE_JWT_ACCESS_MINUTES:15}
+    refresh-token-days: ${CIVICSENSE_JWT_REFRESH_DAYS:7}
+    refresh-cookie-name: civicsense_refresh
+    # Set CIVICSENSE_REFRESH_COOKIE_SECURE=true whenever TLS is used.
+    refresh-cookie-secure: ${CIVICSENSE_REFRESH_COOKIE_SECURE:false}
+    bcrypt-strength: 12
+    # Phase 12: new hashes use Argon2id; legacy BCrypt hashes are verified and
+    # transparently upgraded after the next successful login.
+    argon2-salt-length: ${CIVICSENSE_ARGON2_SALT_LENGTH:16}
+    argon2-hash-length: ${CIVICSENSE_ARGON2_HASH_LENGTH:32}
+    argon2-parallelism: ${CIVICSENSE_ARGON2_PARALLELISM:1}
+    argon2-memory-kb: ${CIVICSENSE_ARGON2_MEMORY_KB:65536}
+    argon2-iterations: ${CIVICSENSE_ARGON2_ITERATIONS:2}
+    max-failed-attempts: 5
+    lockout-minutes: 15
+    login-rate-limit: 5
+    login-rate-window-minutes: 15
+    reset-token-minutes: ${CIVICSENSE_RESET_TOKEN_MINUTES:30}
+    reset-rate-limit: ${CIVICSENSE_RESET_RATE_LIMIT:5}
+    reset-rate-window-minutes: ${CIVICSENSE_RESET_RATE_WINDOW_MINUTES:15}
+    reset-url: ${CIVICSENSE_RESET_URL:http://localhost:5173/reset-password}
+  super-admin:
+    # Bootstrap only when both values are present. Never commit real values.
+    email: ${CIVICSENSE_SUPERADMIN_EMAIL:}
+    password: ${CIVICSENSE_SUPERADMIN_PASSWORD:}
+  mail:
+    # External delivery stays disabled until every provider value is supplied.
+    enabled: ${CIVICSENSE_MAIL_ENABLED:false}
+    from: ${CIVICSENSE_MAIL_FROM:}
+    reset-subject: ${CIVICSENSE_MAIL_RESET_SUBJECT:CivicSense password reset}
+    host: ${CIVICSENSE_MAIL_HOST:}
+    port: ${CIVICSENSE_MAIL_PORT:587}
+    username: ${CIVICSENSE_MAIL_USERNAME:}
+    password: ${CIVICSENSE_MAIL_PASSWORD:}
+    smtp-auth: ${CIVICSENSE_MAIL_SMTP_AUTH:true}
+    starttls: ${CIVICSENSE_MAIL_STARTTLS:true}
+
+logging:
+  # Boot 4.2 built-in ECS JSON console output; MDC correlationId is included.
+  # Supported Boot formats are ecs, gelf and logstash; ECS is standard JSON.
+  structured:
+    format:
+      console: ecs
+  level:
+    com.civicsense: INFO
+    org.flywaydb: INFO

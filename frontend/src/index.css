@@ -1,0 +1,150 @@
+@import 'tailwindcss';
+
+/*
+ * CivicSense design tokens.
+ *  - brand: deep moss/forest green (primary actions, active states)
+ *  - clay:  muted terracotta (secondary highlights, charts)
+ *  - stone: Tailwind's warm neutral scale (surfaces and text)
+ * Change a hue here and the whole app follows.
+ */
+@theme {
+  --font-sans:
+    'Instrument Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif;
+  --font-display:
+    'Bricolage Grotesque', 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    sans-serif;
+
+  --color-brand-50: #f3f6ee;
+  --color-brand-100: #e4ecd9;
+  --color-brand-200: #c9d9b5;
+  --color-brand-300: #a4bd88;
+  --color-brand-400: #7b9a5d;
+  --color-brand-500: #5b7c42;
+  --color-brand-600: #476333;
+  --color-brand-700: #394f2b;
+  --color-brand-800: #2e4023;
+  --color-brand-900: #26351e;
+  --color-brand-950: #131c0f;
+
+  --color-clay-50: #fbf2ec;
+  --color-clay-100: #f5e0d3;
+  --color-clay-300: #e0a283;
+  --color-clay-500: #b8572f;
+  --color-clay-600: #9c4524;
+  --color-clay-700: #7c371d;
+
+  --color-paper: #f7f4ee;
+  --color-paper-deep: #efeae0;
+
+  /* Warm the neutral scale so every surface sits well on the paper background. */
+  --color-stone-50: #faf8f4;
+  --color-stone-100: #f1eee6;
+  --color-stone-200: #e6e1d6;
+  --color-stone-300: #d3cdbf;
+
+  /* One corner language: controls and inline panels share a radius, cards are larger. */
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 1rem;
+
+  --shadow-soft: 0 1px 0 rgba(28, 25, 23, 0.04), 0 8px 24px -12px rgba(28, 25, 23, 0.12);
+  --shadow-lift: 0 1px 0 rgba(28, 25, 23, 0.04), 0 18px 40px -18px rgba(28, 25, 23, 0.28);
+}
+
+:root {
+  font-family: var(--font-sans);
+  color: var(--color-stone-900);
+  background: var(--color-paper);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-brand-200);
+  color: var(--color-brand-950);
+}
+
+/* Subtle blueprint-style grid used behind hero sections. */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(28, 25, 23, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(28, 25, 23, 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(to bottom, #000 30%, transparent 95%);
+}
+
+@keyframes civic-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes civic-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-rise {
+  animation: civic-rise 0.5s ease-out both;
+}
+
+.animate-rise-delay {
+  animation: civic-rise 0.6s 0.08s ease-out both;
+}
+
+.animate-fade-in {
+  animation: civic-fade 0.25s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .animate-rise,
+  .animate-rise-delay,
+  .animate-fade-in {
+    animation: none;
+  }
+}

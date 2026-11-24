@@ -1,0 +1,18 @@
+package com.civicsense.domain;
+
+public enum ComplaintStatus {
+    SUBMITTED,
+    AI_ANALYSIS_PENDING,
+    AI_ANALYSIS_COMPLETED,
+    AI_ANALYSIS_FAILED,
+    PENDING_ASSIGNMENT,
+    UNASSIGNED,
+    ASSIGNED,
+    ACKNOWLEDGED,
+    IN_PROGRESS,
+    ON_HOLD,
+    RESOLVED,
+    REOPENED,
+    REJECTED,
+    CLOSED
+}
